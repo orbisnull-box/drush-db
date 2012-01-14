@@ -1,0 +1,60 @@
+#!/bin/bash
+
+drush=/usr/bin/drush
+sql_dump_dir=.system/sqldump
+sql_dump_file=$sql_dump_dir/drupal-sql-dump.sql
+
+
+action=$1
+
+echo oo-drush $action is started
+
+delete_all_tables_do() 
+{
+    echo "show tables;" | `$drush sql-connect` | grep -v Tables_in | grep -v "+" | awk '{print "drop table " $1 ";"}' | `$drush sql-connect`
+    
+    if [ $? -ne 0 ]; then
+	echo "problems delete all tables"
+	return 1
+    else
+	echo "all tables deleted"
+	return 0
+    fi
+}
+
+if [[ $action = "dump" ]]; then
+    if [[ ! -d $sql_dump_dir ]]
+	then
+	mkdir -p $sql_dump_dir
+	chmod 700 $sql_dump_dir
+    fi
+    $drush cc all
+    $drush sql-dump --structure-tables-key=common --ordered-dump --create-db --result-file=$sql_dump_file
+
+elif [[ $action = "load" ]]; then
+    delete_all_tables_do
+    `$drush sql-connect` < $sql_dump_file
+
+elif [[ $action = "del-tables" ]]; then
+    delete_all_tables_do
+elif [[ $action = "help" ]]; then
+    echo "This is a some utilits for DRUSH, you may use it whist command:
+	dump - dump mysql database
+	load - import database from dump file
+	help -this shot help"
+	exit 0
+else
+    echo Please use with command: dump, load, help
+    exit 1
+fi
+
+
+
+if [ $? -ne 0 ]; then
+    echo ERROR in oo-drush $action
+    exit 1
+else
+    echo oo-drush $action  is compleated OK
+fi
+
+exit 0
